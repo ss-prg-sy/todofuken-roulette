@@ -1,0 +1,509 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>都道府県ルーレット</title>
+<meta name="theme-color" content="#14382a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="ルーレット">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%231d4a33'/%3E%3Crect x='14' y='26' width='72' height='48' rx='4' fill='%23f4f0e3'/%3E%3Ccircle cx='50' cy='50' r='13' fill='%23e5533d'/%3E%3C/svg%3E">
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=DotGothic16&family=Zen+Kaku+Gothic+New:wght@400;700&display=swap">
+<style>
+/* Layout: 球場の手書きスコアボード。緑の盤面に白い板（プレート）が1枚、そこに結果が出る。下に操作と設定。 */
+:root {
+  --board: #1d4a33;        /* スコアボードの緑 */
+  --board-deep: #14382a;
+  --board-line: #2f6a4c;
+  --plate: #f4f0e3;        /* 白いプレート */
+  --ink: #1b2620;          /* プレートの文字 */
+  --chalk: #e9efe6;        /* 盤面上の白文字 */
+  --chalk-dim: #a9c2b2;
+  --lamp: #f2b63d;         /* ランプの黄 */
+  --lamp-red: #e5533d;     /* 赤ランプ */
+  --font-display: "Dela Gothic One", "Hiragino Kaku Gothic StdN", "Yu Gothic", sans-serif;
+  --font-body: "Zen Kaku Gothic New", "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif;
+  --font-dot: "DotGothic16", "MS Gothic", monospace;
+  color-scheme: dark;
+}
+:root[data-mode="travel"] {
+  --board: #1f3550;        /* 旅行モードは夜空の紺 */
+  --board-deep: #172a40;
+  --board-line: #35557a;
+  --chalk-dim: #a8bad0;
+  --lamp: #7fd1c7;
+  --lamp-red: #f08a5d;
+}
+* { box-sizing: border-box; }
+:root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); background: var(--board-deep); }
+[hidden] { display: none !important; }
+body {
+  margin: 0;
+  background: var(--board-deep);
+  color: var(--chalk);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.6;
+  transition: background .4s;
+}
+.wrap {
+  max-width: 760px;
+  margin: 0 auto;
+  padding-block: 20px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid;
+  gap: 18px;
+}
+header { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px; }
+h1 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(1.5rem, 5vw, 2rem);
+  line-height: 1.2;
+  margin: 0;
+  letter-spacing: .04em;
+  text-wrap: balance;
+}
+.tabs {
+  display: inline-flex;
+  background: var(--board);
+  border: 1px solid var(--board-line);
+  border-radius: 999px;
+  padding: 4px;
+  gap: 4px;
+}
+.tabs button {
+  font: inherit;
+  font-weight: 700;
+  font-size: .9rem;
+  color: var(--chalk-dim);
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+  padding: 6px 14px;
+  cursor: pointer;
+}
+.tabs button[aria-selected="true"] { background: var(--plate); color: var(--ink); }
+
+/* 盤面 */
+.board {
+  background: var(--board);
+  border: 6px solid var(--board-line);
+  border-radius: 6px;
+  padding: 18px clamp(14px, 4vw, 28px) 22px;
+  display: grid;
+  gap: 14px;
+  box-shadow: inset 0 0 0 2px rgba(0,0,0,.15);
+  transition: background .4s, border-color .4s;
+}
+.board-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.board-label { font-family: var(--font-dot); font-size: 1rem; letter-spacing: .12em; color: var(--chalk); }
+.lamps { display: flex; gap: 6px; }
+.lamps i { width: 12px; height: 12px; border-radius: 50%; background: rgba(0,0,0,.3); display: block; transition: background .15s; }
+.lamps i.on { background: var(--lamp); box-shadow: 0 0 10px var(--lamp); }
+.lamps i.on.red { background: var(--lamp-red); box-shadow: 0 0 10px var(--lamp-red); }
+
+.plate {
+  background: var(--plate);
+  color: var(--ink);
+  border-radius: 3px;
+  min-height: 170px;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 18px 12px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 3px 0 rgba(0,0,0,.35);
+}
+.plate::before, .plate::after { /* プレートを留めるビス */
+  content: ""; position: absolute; top: 10px; width: 8px; height: 8px; border-radius: 50%;
+  background: #c9c2ad;
+}
+.plate::before { left: 10px; } .plate::after { right: 10px; }
+.result-name {
+  font-family: var(--font-display);
+  font-size: clamp(2.6rem, 13vw, 5rem);
+  line-height: 1.1;
+  letter-spacing: .06em;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.result-name.spinning { opacity: .75; }
+.result-name.landed { animation: land .35s ease-out; }
+@keyframes land { 0% { transform: translateY(-14px); } 60% { transform: translateY(3px); } 100% { transform: none; } }
+.result-sub { font-weight: 700; font-size: 1rem; margin: 6px 0 0; color: #4b5a51; min-height: 1.6em; }
+.result-chance { font-family: var(--font-dot); font-size: .85rem; color: #6a7770; margin: 2px 0 0; min-height: 1.4em; font-variant-numeric: tabular-nums; }
+
+.actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.spin {
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  letter-spacing: .1em;
+  color: var(--ink);
+  background: var(--lamp);
+  border: 0;
+  border-radius: 6px;
+  padding: 12px 28px;
+  cursor: pointer;
+  box-shadow: 0 4px 0 rgba(0,0,0,.35);
+  flex: 1 1 220px;
+}
+.spin:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(0,0,0,.35); }
+.spin:disabled { opacity: .6; cursor: wait; }
+.check { display: inline-flex; align-items: center; gap: 8px; font-size: .9rem; color: var(--chalk); cursor: pointer; flex: 1 1 200px; }
+.check input { width: 18px; height: 18px; accent-color: var(--lamp); }
+
+button:focus-visible, input:focus-visible, summary:focus-visible { outline: 3px solid var(--lamp); outline-offset: 2px; }
+
+/* 履歴 */
+.history { display: grid; gap: 6px; }
+.history h2, .settings summary { font-family: var(--font-dot); font-weight: 400; font-size: .95rem; letter-spacing: .1em; margin: 0; color: var(--chalk-dim); }
+.history ol { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.history li {
+  background: var(--board);
+  border: 1px solid var(--board-line);
+  border-radius: 4px;
+  padding: 2px 10px;
+  font-size: .9rem;
+  font-variant-numeric: tabular-nums;
+}
+.history li b { font-family: var(--font-dot); font-weight: 400; color: var(--chalk-dim); margin-right: 6px; }
+.history li.dup { border-color: var(--lamp-red); }
+.history .empty { color: var(--chalk-dim); font-size: .9rem; }
+.history-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.linkbtn { font: inherit; font-size: .85rem; color: var(--chalk-dim); background: none; border: 0; text-decoration: underline; cursor: pointer; padding: 2px 4px; }
+
+/* 出やすさ設定 */
+.settings { background: var(--board); border: 1px solid var(--board-line); border-radius: 6px; padding: 12px 14px; }
+.settings summary { cursor: pointer; color: var(--chalk); }
+.settings .note { font-size: .85rem; color: var(--chalk-dim); margin: 10px 0 4px; }
+.region h3 { font-size: .85rem; font-weight: 700; color: var(--lamp); margin: 14px 0 6px; letter-spacing: .08em; }
+.rows { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr)); gap: 6px 14px; }
+.row { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
+.row span { font-size: .92rem; white-space: nowrap; }
+.row span.boost { color: var(--lamp); font-weight: 700; }
+.row span.off { color: var(--chalk-dim); text-decoration: line-through; }
+.seg { display: inline-flex; border: 1px solid var(--board-line); border-radius: 4px; overflow: hidden; flex-shrink: 0; }
+.seg button {
+  font-family: var(--font-dot);
+  font-size: .8rem;
+  color: var(--chalk-dim);
+  background: transparent;
+  border: 0;
+  border-left: 1px solid var(--board-line);
+  padding: 3px 8px;
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+.seg button:first-child { border-left: 0; }
+.seg button[aria-pressed="true"] { background: var(--plate); color: var(--ink); }
+.settings-foot { display: flex; justify-content: flex-end; margin-top: 12px; }
+
+footer { font-size: .8rem; color: var(--chalk-dim); text-align: center; }
+
+@media (prefers-reduced-motion: reduce) {
+  .result-name.landed { animation: none; }
+  body, .board { transition: none; }
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <h1 id="title">スカウト先ルーレット</h1>
+    <div class="tabs" role="tablist" aria-label="モード">
+      <button id="tab-game" role="tab" aria-selected="true" data-mode="game">栄冠ナイン</button>
+      <button id="tab-travel" role="tab" aria-selected="false" data-mode="travel">旅行先</button>
+    </div>
+  </header>
+
+  <section class="board" aria-live="polite">
+    <div class="board-top">
+      <span class="board-label" id="board-label">本日のスカウト先</span>
+      <span class="lamps" aria-hidden="true"><i></i><i></i><i></i></span>
+    </div>
+    <div class="plate">
+      <div>
+        <p class="result-name" id="result-name">？？？</p>
+        <p class="result-sub" id="result-sub">「まわす」を押してください</p>
+        <p class="result-chance" id="result-chance"></p>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="spin" id="spin">まわす</button>
+      <label class="check" for="no-repeat"><input type="checkbox" id="no-repeat"> 直前と同じ県は出さない</label>
+    </div>
+  </section>
+
+  <section class="history">
+    <div class="history-row">
+      <h2>これまでの結果</h2>
+      <button class="linkbtn" id="clear-history">履歴を消す</button>
+    </div>
+    <ol id="history"></ol>
+  </section>
+
+  <details class="settings" id="settings">
+    <summary>出やすさの設定</summary>
+    <p class="note" id="settings-note"></p>
+    <div id="regions"></div>
+    <div class="settings-foot"><button class="linkbtn" id="reset-weights">最初の設定にもどす</button></div>
+  </details>
+
+  <footer id="footer"></footer>
+</div>
+
+<script>
+(() => {
+  // ---------- データ ----------
+  const REGIONS = [
+    ["北海道", ["北海道"]],
+    ["東北", ["青森","岩手","宮城","秋田","山形","福島"]],
+    ["関東", ["茨城","栃木","群馬","埼玉","千葉","東京","神奈川"]],
+    ["中部", ["新潟","富山","石川","福井","山梨","長野","岐阜","静岡","愛知"]],
+    ["近畿", ["三重","滋賀","京都","大阪","兵庫","奈良","和歌山"]],
+    ["中国", ["鳥取","島根","岡山","広島","山口"]],
+    ["四国", ["徳島","香川","愛媛","高知"]],
+    ["九州・沖縄", ["福岡","佐賀","長崎","熊本","大分","宮崎","鹿児島","沖縄"]],
+  ];
+  const SUFFIX = n => n === "北海道" ? "" : n === "東京" ? "都" : (n === "京都" || n === "大阪") ? "府" : "県";
+
+  // 栄冠ナイン：北海道は北/南、東京は東/西
+  const GAME_BOOST = ["愛知","神奈川","東東京","西東京","岩手","大阪","広島"];
+  const gameItems = [];
+  for (const [region, prefs] of REGIONS) {
+    for (const p of prefs) {
+      if (p === "北海道") { gameItems.push({ id: "北北海道", name: "北北海道", region }); gameItems.push({ id: "南北海道", name: "南北海道", region }); }
+      else if (p === "東京") { gameItems.push({ id: "東東京", name: "東東京", region }); gameItems.push({ id: "西東京", name: "西東京", region }); }
+      else gameItems.push({ id: p, name: p + SUFFIX(p), region });
+    }
+  }
+  const gameDefault = Object.fromEntries(gameItems.map(i => [i.id, GAME_BOOST.includes(i.id) ? 2 : 1]));
+
+  // 旅行：観光地が多いところは出やすく（×2〜×3）
+  const TRAVEL = {
+    "北海道":[3,"札幌・小樽・函館、海鮮とラーメン"], "青森":[1,"ねぶた祭・奥入瀬渓流"], "岩手":[1,"平泉の中尊寺・わんこそば"],
+    "宮城":[2,"松島・仙台の牛たん"], "秋田":[1,"角館の武家屋敷・乳頭温泉"], "山形":[1,"銀山温泉・山寺"], "福島":[1,"大内宿・会津若松"],
+    "茨城":[1,"ひたち海浜公園・袋田の滝"], "栃木":[2,"日光東照宮・鬼怒川温泉"], "群馬":[2,"草津温泉・伊香保温泉"],
+    "埼玉":[1,"川越の小江戸・秩父"], "千葉":[2,"東京ディズニーリゾート・房総の海"], "東京":[3,"浅草・渋谷・東京スカイツリー"],
+    "神奈川":[3,"鎌倉・箱根・横浜中華街"], "新潟":[1,"佐渡島・へぎそば"], "富山":[1,"立山黒部アルペンルート"],
+    "石川":[2,"金沢の兼六園・ひがし茶屋街"], "福井":[1,"東尋坊・恐竜博物館"], "山梨":[2,"富士五湖・ほうとう"],
+    "長野":[2,"軽井沢・上高地・善光寺"], "岐阜":[2,"白川郷・飛騨高山"], "静岡":[2,"熱海・伊豆・富士山"], "愛知":[1,"名古屋城・ひつまぶし"],
+    "三重":[2,"伊勢神宮・鳥羽水族館"], "滋賀":[1,"琵琶湖・彦根城"], "京都":[3,"清水寺・嵐山・伏見稲荷"], "大阪":[3,"USJ・道頓堀のたこ焼き"],
+    "兵庫":[2,"神戸・有馬温泉・姫路城"], "奈良":[2,"東大寺の大仏・奈良公園の鹿"], "和歌山":[1,"白浜・高野山・熊野古道"],
+    "鳥取":[1,"鳥取砂丘・境港"], "島根":[1,"出雲大社・松江城"], "岡山":[1,"倉敷美観地区・後楽園"], "広島":[2,"厳島神社・原爆ドーム・お好み焼き"],
+    "山口":[1,"角島大橋・錦帯橋"], "徳島":[1,"鳴門の渦潮・阿波おどり"], "香川":[1,"讃岐うどん・直島のアート"], "愛媛":[1,"道後温泉・しまなみ海道"],
+    "高知":[1,"桂浜・カツオのたたき"], "福岡":[2,"博多ラーメン・太宰府天満宮"], "佐賀":[1,"唐津・嬉野温泉"], "長崎":[2,"グラバー園・ハウステンボス"],
+    "熊本":[2,"熊本城・阿蘇"], "大分":[2,"別府温泉・由布院"], "宮崎":[1,"高千穂峡・青島"], "鹿児島":[2,"桜島・屋久島"], "沖縄":[3,"美ら海水族館・青い海"],
+  };
+  const travelItems = [];
+  for (const [region, prefs] of REGIONS) for (const p of prefs) travelItems.push({ id: p, name: p + SUFFIX(p), region, note: TRAVEL[p][1] });
+  const travelDefault = Object.fromEntries(travelItems.map(i => [i.id, TRAVEL[i.id][0]]));
+
+  const MODES = {
+    game:   { items: gameItems,   defaults: gameDefault,   title: "スカウト先ルーレット", label: "本日のスカウト先",
+              note: "愛知・神奈川・東東京・西東京・岩手・大阪・広島は最初から ×2 にしてあります。「なし」にすると出なくなります。",
+              footer: `栄冠ナイン用：${gameItems.length}地区（北海道は北/南、東京は東/西）` },
+    travel: { items: travelItems, defaults: travelDefault, title: "旅行先ルーレット", label: "次の旅行先",
+              note: "観光地が多いところは ×2〜×3 で出やすくしてあります。好みで変えてOKです。",
+              footer: "旅行用：47都道府県" },
+  };
+
+  // ---------- 保存（このブラウザだけ） ----------
+  const load = (k, fb) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : fb; } catch { return fb; } };
+  const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+
+  const state = {
+    mode: load("tr.mode", "game"),
+    weights: { game: { ...gameDefault, ...load("tr.w.game", {}) }, travel: { ...travelDefault, ...load("tr.w.travel", {}) } },
+    history: { game: load("tr.h.game", []), travel: load("tr.h.travel", []) },
+    noRepeat: load("tr.noRepeat", false),
+    spinning: false,
+  };
+  if (!MODES[state.mode]) state.mode = "game";
+
+  const $ = id => document.getElementById(id);
+  const nameEl = $("result-name"), subEl = $("result-sub"), chanceEl = $("result-chance"), spinBtn = $("spin");
+  const lamps = [...document.querySelectorAll(".lamps i")];
+
+  const cur = () => MODES[state.mode];
+  const W = () => state.weights[state.mode];
+  const itemById = id => cur().items.find(i => i.id === id);
+
+  function pool(excludeId) {
+    return cur().items.filter(i => (W()[i.id] || 0) > 0 && i.id !== excludeId);
+  }
+  function pick(list) {
+    const total = list.reduce((s, i) => s + W()[i.id], 0);
+    let r = Math.random() * total;
+    for (const i of list) { r -= W()[i.id]; if (r < 0) return i; }
+    return list[list.length - 1];
+  }
+  function chanceOf(id, list) {
+    const total = list.reduce((s, i) => s + W()[i.id], 0);
+    return total ? (W()[id] / total * 100) : 0;
+  }
+
+  function subText(item) {
+    if (state.mode === "travel") return item.note;
+    return item.region + "地方";
+  }
+
+  function showIdle() {
+    const h = state.history[state.mode];
+    if (h.length) {
+      const item = itemById(h[0]);
+      if (item) { renderResult(item, false); spinBtn.textContent = "もう一回まわす"; return; }
+    }
+    nameEl.textContent = "？？？";
+    subEl.textContent = "「まわす」を押してください";
+    chanceEl.textContent = "";
+    spinBtn.textContent = "まわす";
+  }
+
+  function renderResult(item, animate, usedPool) {
+    nameEl.textContent = item.name;
+    nameEl.classList.remove("spinning");
+    if (animate) { nameEl.classList.remove("landed"); void nameEl.offsetWidth; nameEl.classList.add("landed"); }
+    subEl.textContent = subText(item);
+    const p = chanceOf(item.id, usedPool || pool());
+    const w = W()[item.id];
+    chanceEl.textContent = `出る確率 ${p.toFixed(1)}%${w > 1 ? `（×${w}）` : ""}`;
+  }
+
+  function setLamps(n, red) {
+    lamps.forEach((l, i) => { l.classList.toggle("on", i < n); l.classList.toggle("red", !!red && i < n); });
+  }
+
+  function spin() {
+    if (state.spinning) return;
+    const h = state.history[state.mode];
+    const exclude = state.noRepeat && h.length ? h[0] : null;
+    let list = pool(exclude);
+    if (!list.length) list = pool();
+    if (!list.length) { subEl.textContent = "出る県がありません。設定で「なし」以外を選んでください。"; return; }
+
+    const result = pick(list);
+    state.spinning = true;
+    spinBtn.disabled = true;
+    subEl.textContent = "まわしています…";
+    chanceEl.textContent = "";
+    nameEl.classList.add("spinning");
+
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const all = list;
+    let delay = 45, elapsed = 0, step = 0;
+    const total = reduce ? 0 : 1700;
+
+    const tick = () => {
+      if (elapsed >= total) return finish();
+      nameEl.textContent = all[Math.floor(Math.random() * all.length)].name;
+      setLamps((step++ % 3) + 1);
+      elapsed += delay;
+      delay = Math.min(delay * 1.12, 260);
+      setTimeout(tick, delay);
+    };
+    const finish = () => {
+      const dup = h.includes(result.id);
+      setLamps(3, dup);
+      renderResult(result, true, list);
+      h.unshift(result.id);
+      if (h.length > 20) h.length = 20;
+      save("tr.h." + state.mode, h);
+      renderHistory();
+      state.spinning = false;
+      spinBtn.disabled = false;
+      spinBtn.textContent = "もう一回まわす";
+    };
+    tick();
+  }
+
+  function renderHistory() {
+    const ol = $("history");
+    ol.innerHTML = "";
+    const h = state.history[state.mode];
+    if (!h.length) { const li = document.createElement("li"); li.className = "empty"; li.style.border = "0"; li.style.background = "none"; li.style.padding = "0"; li.textContent = "まだありません"; ol.append(li); return; }
+    const counts = {};
+    h.forEach(id => counts[id] = (counts[id] || 0) + 1);
+    h.forEach((id, idx) => {
+      const item = itemById(id); if (!item) return;
+      const li = document.createElement("li");
+      if (counts[id] > 1) li.classList.add("dup");
+      const b = document.createElement("b"); b.textContent = String(h.length - idx);
+      li.append(b, item.name);
+      if (counts[id] > 1) li.title = `${counts[id]}回出ています`;
+      ol.append(li);
+    });
+  }
+
+  function renderSettings() {
+    $("settings-note").textContent = cur().note;
+    const wrap = $("regions");
+    wrap.innerHTML = "";
+    const opts = [[0,"なし"],[1,"×1"],[2,"×2"],[3,"×3"]];
+    for (const [region] of REGIONS) {
+      const items = cur().items.filter(i => i.region === region);
+      const sec = document.createElement("div"); sec.className = "region";
+      const h3 = document.createElement("h3"); h3.textContent = region; sec.append(h3);
+      const rows = document.createElement("div"); rows.className = "rows";
+      for (const item of items) {
+        const row = document.createElement("div"); row.className = "row";
+        const label = document.createElement("span");
+        const w = W()[item.id];
+        label.textContent = item.name;
+        if (w >= 2) label.className = "boost";
+        if (w === 0) label.className = "off";
+        const seg = document.createElement("div"); seg.className = "seg"; seg.setAttribute("role", "group"); seg.setAttribute("aria-label", item.name + "の出やすさ");
+        for (const [v, t] of opts) {
+          const b = document.createElement("button");
+          b.type = "button"; b.textContent = t; b.setAttribute("aria-pressed", String(w === v));
+          b.addEventListener("click", () => {
+            W()[item.id] = v; save("tr.w." + state.mode, W());
+            renderSettings(); refreshChance();
+          });
+          seg.append(b);
+        }
+        row.append(label, seg); rows.append(row);
+      }
+      sec.append(rows); wrap.append(sec);
+    }
+  }
+
+  function refreshChance() {
+    const h = state.history[state.mode];
+    if (!state.spinning && h.length) { const item = itemById(h[0]); if (item) renderResult(item, false); }
+  }
+
+  function setMode(mode) {
+    state.mode = mode; save("tr.mode", mode);
+    document.documentElement.dataset.mode = mode;
+    for (const t of document.querySelectorAll(".tabs button")) t.setAttribute("aria-selected", String(t.dataset.mode === mode));
+    $("title").textContent = cur().title;
+    $("board-label").textContent = cur().label;
+    $("footer").textContent = cur().footer;
+    setLamps(0);
+    showIdle(); renderHistory(); renderSettings();
+  }
+
+  // ---------- イベント ----------
+  spinBtn.addEventListener("click", spin);
+  for (const t of document.querySelectorAll(".tabs button")) t.addEventListener("click", () => { if (!state.spinning) setMode(t.dataset.mode); });
+  const nr = $("no-repeat"); nr.checked = state.noRepeat;
+  nr.addEventListener("change", () => { state.noRepeat = nr.checked; save("tr.noRepeat", nr.checked); });
+  $("clear-history").addEventListener("click", () => { state.history[state.mode] = []; save("tr.h." + state.mode, []); setLamps(0); showIdle(); renderHistory(); });
+  $("reset-weights").addEventListener("click", () => { state.weights[state.mode] = { ...cur().defaults }; save("tr.w." + state.mode, W()); renderSettings(); refreshChance(); });
+
+  setMode(state.mode);
+})();
+</script>
+
+</body>
+</html>
